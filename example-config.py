@@ -10,4 +10,9 @@ keycloak_config = {
     "realm": "myrealm",
     "client_id": "myClientId",
     "client_secret": "secret",
+    "service_account": {
+      "attribute_name": "voPersonID",
+      "candidate": "id",
+      "scope": "example.org"
+    },
 }
