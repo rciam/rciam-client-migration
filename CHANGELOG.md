@@ -10,3 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initialize files
+
+### Fixed
+
+- Enable consent page only if the authZ code or device code flow is enabled
+
+### Removed
+
+- Ignore `client.offline.session.max.lifespan` parameter
