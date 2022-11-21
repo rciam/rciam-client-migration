@@ -208,7 +208,7 @@ def format_keycloak_client_object(msg, realm_default_client_scopes):
             if grant_type == "implicit":
                 new_msg["implicitFlowEnabled"] = True
     if "token_endpoint_auth_method" in msg and msg["token_endpoint_auth_method"]:
-        if msg["token_endpoint_auth_method"] == "none":
+        if msg["token_endpoint_auth_method"] == "NONE":
             new_msg["publicClient"] = True
         new_msg["clientAuthenticatorType"] = map_token_endpoint_value(msg.pop("token_endpoint_auth_method"))
     if "client_secret" in msg and msg["client_secret"]:
