@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initialize `webOrigins` to `+`
 
+### Fixed
+
+- Fix the case of `token_endpoint_auth_method`'s value
+
 ## [v1.0.0] - 2022-09-01
 
 ### Added
