@@ -142,7 +142,7 @@ def sync(dry_run):
     logging.debug("scopes: " + str(json.dumps(default_client_scopes)))
 
     for client in client_details:
-        keycloak_client_list.append(format_keycloak_client_object(client, default_client_scopes))
+        keycloak_client_list.append(format_keycloak_client_object(client, default_client_scopes, config.keycloak_config))
 
     # keycloak_client_list = json.dumps(keycloak_client_list)
     logging.debug("clients: " + str(json.dumps(keycloak_client_list)))
@@ -168,10 +168,14 @@ def sync(dry_run):
             # break
 
 
-def format_keycloak_client_object(msg, realm_default_client_scopes):
-    json_template = '{"attributes":{"client_credentials.use_refresh_token":"false","oauth2.device.authorization.grant.enabled":"false","oauth2.token.exchange.grant.enabled":false,"oidc.ciba.grant.enabled":"false","refresh.token.max.reuse":"0","revoke.refresh.token":"false","use.jwks.string":"false","use.jwks.url":"false","use.refresh.tokens":"false"},"consentRequired":false,"implicitFlowEnabled":false,"publicClient":false,"serviceAccountsEnabled":false,"standardFlowEnabled":false,"webOrigins": ["+"]}'
+def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_config):
+    json_template = '{"attributes":{"client_credentials.use_refresh_token":"false","oauth2.device.authorization.grant.enabled":"false","oauth2.token.exchange.grant.enabled":false,"oidc.ciba.grant.enabled":"false","refresh.token.max.reuse":"0","revoke.refresh.token":"false","use.jwks.string":"false","use.jwks.url":"false","use.refresh.tokens":"false"},"implicitFlowEnabled":false,"publicClient":false,"serviceAccountsEnabled":false,"standardFlowEnabled":false,"webOrigins":["+"]}'
     new_msg = json.loads(json_template)
     new_msg["defaultClientScopes"] = realm_default_client_scopes
+    if "oidc_consent" in keycloak_config:
+        new_msg["consentRequired"] = keycloak_config["oidc_consent"]
+    else:
+        new_msg["consentRequired"] = False
     if "client_name" in msg and msg["client_name"]:
         new_msg["name"] = msg.pop("client_name")
     if "client_id" in msg and msg["client_id"]:
