@@ -9,13 +9,14 @@ Install from git and configure
 ```bash
 git clone https://github.com/rciam/rciam-client-migration.git
 cd rciam-client-migration
-cp config-example.py config.py
+cp example-config.py config.py
 vi config.py
 ```
 
 Create a Python virtualenv, install dependencies, and run the script
 
 ```bash
+apt install python3-virtualenv
 virtualenv -p python3 .venv
 source .venv/bin/activate
 (venv) pip3 install -r requirements.txt
