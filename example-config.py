@@ -15,4 +15,5 @@ keycloak_config = {
       "candidate": "id",
       "scope": "example.org"
     },
+    "oidc_consent": False,
 }
