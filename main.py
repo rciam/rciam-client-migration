@@ -47,6 +47,11 @@ def sync(dry_run):
 
     # Create psycopg2 cursor that can execute queries
     cursor_oidc = conn_oidc.cursor(cursor_factory=RealDictCursor)
+    
+    dynamic_registrations = ""
+    if not config.keycloak_config["copy_dynamic_clients"]:
+        dynamic_registrations = """WHERE
+        NOT det.dynamically_registered"""
 
     # Initialise connection to MITREid Connect DB
     oidc_query = """SELECT
@@ -67,6 +72,7 @@ def sync(dry_run):
         det.reuse_refresh_tokens,
         det.refresh_token_validity_seconds,
         det.device_code_validity_seconds,
+        det.dynamically_registered,
         det.code_challenge_method,
         string_agg(DISTINCT red.redirect_uri, ',') AS redirect_uri_list,
         string_agg(DISTINCT cont.contact, ',') AS contact_list,
@@ -86,8 +92,7 @@ def sync(dry_run):
     LEFT JOIN
         client_grant_type AS grantt
         ON det.id=grantt.owner_id
-    WHERE
-        NOT det.dynamically_registered
+    %s
     GROUP BY
         det.client_name,
         det.client_id,
@@ -106,7 +111,8 @@ def sync(dry_run):
         det.reuse_refresh_tokens,
         det.refresh_token_validity_seconds,
         det.device_code_validity_seconds,
-        det.code_challenge_method;"""
+        det.dynamically_registered,
+        det.code_challenge_method;""" % (dynamic_registrations)
 
     # Select MITREid Connect clients
     logging.debug("Retrieving client details from MITREid Connect DB")
@@ -119,7 +125,6 @@ def sync(dry_run):
 
     client_details = cursor_oidc.fetchall()
     client_details = [dict(row) for row in client_details]
-    logging.debug("clients" + str(client_details))
 
     cursor_oidc.close()
     conn_oidc.close()
@@ -141,16 +146,14 @@ def sync(dry_run):
 
     logging.debug("scopes: " + str(json.dumps(default_client_scopes)))
 
-    for client in client_details:
-        keycloak_client_list.append(format_keycloak_client_object(client, default_client_scopes, config.keycloak_config))
-
     # keycloak_client_list = json.dumps(keycloak_client_list)
     logging.debug("clients: " + str(json.dumps(keycloak_client_list)))
 
     if not dry_run:
-        for client in keycloak_client_list:
-            logging.debug("create client: " + str(client))
-            response = keycloak_agent.create_client((client))
+        for client in client_details:
+            request_data = format_keycloak_client_object(client, default_client_scopes, config.keycloak_config)
+            logging.debug("create client: " + str(request_data))
+            response = keycloak_agent.create_client((request_data))
             if response["status"] == 201:
                 client_id = response["response"]["clientId"]
                 if "id" in response["response"]:
@@ -158,14 +161,16 @@ def sync(dry_run):
                 else:
                     response_external_id = keycloak_agent.get_client_by_id(client_id)
                     external_id = response_external_id["response"]["id"]
-                create_client_scopes(keycloak_agent, external_id, client)
-                if client["attributes"]["oauth2.token.exchange.grant.enabled"] == True:
+                if client["dynamically_registered"]:
+                    logging.info("Registration Access Token for client `" + str(client_id) + "`: " + str(response["response"]["registrationAccessToken"]))
+                else:
+                    create_client_scopes(keycloak_agent, external_id, request_data)
+                if request_data["attributes"]["oauth2.token.exchange.grant.enabled"] == True:
                     keycloak_agent.update_client_authz_permissions(external_id, "enable")
                 if response["response"]["serviceAccountsEnabled"]:
                     update_service_account(
                         keycloak_agent, external_id, response["response"], config.keycloak_config["service_account"]
                     )
-            # break
 
 
 def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_config):
@@ -221,7 +226,8 @@ def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_con
         new_msg["attributes"]["token.endpoint.auth.signing.alg"] = msg.pop("token_endpoint_auth_signing_alg")
     if "jwks" in msg and msg["jwks"]:
         new_msg["attributes"]["use.jwks.string"] = "true"
-        new_msg["attributes"]["jwks.string"] = json.dumps(msg.pop("jwks"))
+        jwks_string = msg.pop("jwks")
+        new_msg["attributes"]["jwks.string"] = jwks_string.replace('"','\"')
     if "jwks_uri" in msg and msg["jwks_uri"]:
         new_msg["attributes"]["use.jwks.url"] = True
         new_msg["attributes"]["jwks.url"] = msg.pop("jwks_uri")

@@ -16,4 +16,5 @@ keycloak_config = {
       "scope": "example.org"
     },
     "oidc_consent": False,
+    "copy_dynamic_clients": False,
 }
