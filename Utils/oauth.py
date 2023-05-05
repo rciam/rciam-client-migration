@@ -1,6 +1,7 @@
-from requests_oauthlib import OAuth2Session
-from oauthlib.oauth2 import BackendApplicationClient
 import logging
+
+from oauthlib.oauth2 import BackendApplicationClient
+from requests_oauthlib import OAuth2Session
 
 """Creating a Access Token using the Client Credentials flow
 :param issuer: The token endpoint, must be HTTPS.

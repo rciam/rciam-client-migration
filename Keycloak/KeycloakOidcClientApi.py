@@ -1,5 +1,6 @@
 import json
 import logging
+
 import requests
 
 """
@@ -77,7 +78,7 @@ class KeycloakOidcClientApi:
         header = {"Authorization": "Bearer " + self.token}
         if action == "enable":
             enabled = True
-        elif action == "disable":
+        else:
             enabled = False
         client_object = {"enabled": enabled}
 

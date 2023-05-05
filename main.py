@@ -1,13 +1,14 @@
-import config
 import json
 import logging
 import os
+import sys
+
+import config
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from Keycloak.KeycloakOidcClientApi import KeycloakOidcClientApi
+from psycopg2.extras import RealDictCursor
 from Utils.common import get_keycloak_issuer
 from Utils.oauth import client_credentials_grant
-import sys
 
 
 def map_token_endpoint_value(key):
