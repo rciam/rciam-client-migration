@@ -198,7 +198,7 @@ def sync(dry_run):
                     response_external_id = keycloak_agent.get_client_by_id(client_id)
                     external_id = response_external_id["response"]["id"]
                 if client["dynamically_registered"]:
-                    log.info(
+                    log.debug(
                         "Registration Access Token for client `"
                         + str(client_id)
                         + "`: "
@@ -213,10 +213,10 @@ def sync(dry_run):
                 else:
                     create_client_scopes(keycloak_agent, external_id, request_data)
                 if request_data["attributes"]["oauth2.token.exchange.grant.enabled"] == True:
-                    log.info("Enabling Token exchange")
+                    log.debug("Enabling Token exchange")
                     keycloak_agent.update_client_authz_permissions(external_id, "enable")
                 if response["response"]["serviceAccountsEnabled"]:
-                    log.info("Updating service account")
+                    log.debug("Updating service account")
                     update_service_account(
                         keycloak_agent, external_id, response["response"], config.keycloak_config["service_account"]
                     )
