@@ -218,17 +218,43 @@ class KeycloakOidcClientApi:
             response = requests.request(method, url, headers=header, json=data)
             response.raise_for_status()
         except requests.exceptions.HTTPError as errh:
-            self.log.error("HTTP Error: %s with error: HTTP %s and response: %s" % (url, response.status_code, response.json()))
-            return {"status": response.status_code, "error": repr(errh), "response": response.json()}
+            self.log.error(
+                "HTTP Error: %s with error: HTTP %s and response: %s" % (url, response.status_code, response.json())
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(errh),
+                "response": response.json(),
+            }
         except requests.exceptions.ConnectionError as errc:
-            self.log.error("Connection Error: %s with error: HTTP  %s and response: %s" % (url, response.status_code, response.text))
-            return {"status": response.status_code, "error": repr(errc), "response": response.json()}
+            self.log.error(
+                "Connection Error: %s with error: HTTP  %s and response: %s"
+                % (url, response.status_code, response.text)
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(errc),
+                "response": response.json(),
+            }
         except requests.exceptions.Timeout as errt:
-            self.log.error("Timeout Error: %s with error: HTTP  %s and response: %s" % (url, response.status_code, response.text))
-            return {"status": response.status_code, "error": repr(errt), "response": response.json()}
+            self.log.error(
+                "Timeout Error: %s with error: HTTP  %s and response: %s" % (url, response.status_code, response.text)
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(errt),
+                "response": response.json(),
+            }
         except requests.exceptions.RequestException as err:
-            self.log.error("Failed to make request to %s with error: HTTP  %s and response: %s" % (url, response.status_code, response.text))
-            return {"status": response.status_code, "error": repr(err), "response": response.json()}
+            self.log.error(
+                "Failed to make request to %s with error: HTTP  %s and response: %s"
+                % (url, response.status_code, response.text)
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(err),
+                "response": response.json(),
+            }
 
         if method == "DELETE" or response.status_code == 204 or not response.text:
             return {"status": response.status_code, "response": "OK"}

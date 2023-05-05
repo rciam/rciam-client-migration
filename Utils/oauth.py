@@ -10,15 +10,15 @@ import logging
 """
 
 
-def client_credentials_grant(issuer, clientId, clientSecret):
+def client_credentials_grant(issuer, client_id, client_secret):
     log = logging.getLogger("client_migration")
-    tokenUrl = issuer + "/protocol/openid-connect/token"
+    token_url = issuer + "/protocol/openid-connect/token"
 
     try:
         log.info("[client_credentials_grant] Get access token from " + issuer)
-        client = BackendApplicationClient(client_id=clientId)
+        client = BackendApplicationClient(client_id=client_id)
         oauth = OAuth2Session(client=client)
-        response = oauth.fetch_token(token_url=tokenUrl, client_id=clientId, client_secret=clientSecret)
+        response = oauth.fetch_token(token_url=token_url, client_id=client_id, client_secret=client_secret)
         log.debug("[client_credentials_grant] Access Token: " + response["access_token"])
     except Exception as e:
         log.error("[client_credentials_grant] Failed to get access token")

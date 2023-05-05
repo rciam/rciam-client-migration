@@ -22,50 +22,49 @@ def map_token_endpoint_value(key):
     elif key == "NONE":
         return "client-secret"
 
+
 def sync(dry_run):
     pathname = str(os.path.dirname(os.path.realpath(__file__)))
 
-    LOGGING_CONFIG = { 
-        'version': 1,
-        'formatters': { 
-            'standard': { 
-                'format': '%(asctime)s [%(levelname)s]: %(message)s'
+    LOGGING_CONFIG = {
+        "version": 1,
+        "formatters": {
+            "standard": {"format": "%(asctime)s [%(levelname)s]: %(message)s"},
+        },
+        "handlers": {
+            "console": {
+                "level": "INFO",
+                "formatter": "standard",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",  # Default is stderr
+            },
+            "file": {
+                "level": "DEBUG",
+                "formatter": "standard",
+                "class": "logging.FileHandler",
+                "filename": pathname + "/log/main.log",  # Default is stderr
+                "mode": "a",
             },
         },
-        'handlers': { 
-            'console': { 
-                'level': 'INFO',
-                'formatter': 'standard',
-                'class': 'logging.StreamHandler',
-                'stream': 'ext://sys.stdout',  # Default is stderr
-            },
-            'file': { 
-                'level': 'DEBUG',
-                'formatter': 'standard',
-                'class': 'logging.FileHandler',
-                'filename': pathname + '/log/main.log',  # Default is stderr
-                'mode': 'a',
-            },
-        },
-        'loggers': { 
-            'client_migration': { 
-                'level': 'DEBUG',
-                'handlers': ['console', 'file'],
+        "loggers": {
+            "client_migration": {
+                "level": "DEBUG",
+                "handlers": ["console", "file"],
                 # 'propagate':False
             },
-        } 
+        },
     }
-    
+
     logging.config.dictConfig(LOGGING_CONFIG)
     log = logging.getLogger("client_migration")
 
     log.info("Creating connection with the MITREid Connect DB")
 
     connect_oidc_str = (
-        "dbname='" + config.mitreid_config['dbname']
-        + "' user='" + config.mitreid_config['user']
-        + "' host='" + config.mitreid_config['host']
-        + "' password='" + config.mitreid_config['password'] + "'"
+        "dbname='" + config.mitreid_config["dbname"]
+        + "' user='" + config.mitreid_config["user"]
+        + "' host='" + config.mitreid_config["host"]
+        + "' password='" + config.mitreid_config["password"] + "'"
     )
 
     try:
@@ -77,7 +76,7 @@ def sync(dry_run):
 
     # Create psycopg2 cursor that can execute queries
     cursor_oidc = conn_oidc.cursor(cursor_factory=RealDictCursor)
-    
+
     dynamic_registrations = ""
     if not config.keycloak_config["copy_dynamic_clients"]:
         dynamic_registrations = """WHERE
@@ -142,7 +141,9 @@ def sync(dry_run):
         det.refresh_token_validity_seconds,
         det.device_code_validity_seconds,
         det.dynamically_registered,
-        det.code_challenge_method;""" % (dynamic_registrations)
+        det.code_challenge_method;""" % (
+        dynamic_registrations
+    )
 
     # Select MITREid Connect clients
     log.info("Retrieving client details from MITREid Connect DB")
@@ -165,11 +166,12 @@ def sync(dry_run):
         config.keycloak_config["client_secret"],
     )
 
-    # Map Query result to Keycloak ClientRepresentation object (JSON)
-    keycloak_client_list = []
-
     log.info("Retrieving default client scopes from Keycloak")
-    keycloak_agent = KeycloakOidcClientApi(config.keycloak_config['auth_server'], config.keycloak_config['realm'], access_token)
+    keycloak_agent = KeycloakOidcClientApi(
+        config.keycloak_config["auth_server"],
+        config.keycloak_config["realm"],
+        access_token,
+    )
     realm_default_client_scopes = keycloak_agent.get_realm_default_client_scopes()
     default_client_scopes = []
     for scope in realm_default_client_scopes["response"]:
@@ -177,17 +179,13 @@ def sync(dry_run):
 
     log.debug("scopes: " + str(json.dumps(default_client_scopes)))
 
-    # keycloak_client_list = json.dumps(keycloak_client_list)
-    # logging.debug("clients: " + str(json.dumps(keycloak_client_list)))
-
     if not dry_run:
         total_clients = len(client_details)
         idx = 1
         log.info("Migrating clients to Keycloak")
         for client in client_details:
             request_data = format_keycloak_client_object(client, default_client_scopes, config.keycloak_config)
-            log.info("Creating client ({}/{})".format(idx,total_clients))
-            # print("Creating client ({}/{})".format(idx,total_clients))
+            log.info("Creating client ({}/{})".format(idx, total_clients))
             log.debug("Formatted message for Keycloak: " + str(request_data))
             response = keycloak_agent.create_client((request_data))
             if response["status"] == 201:
@@ -198,7 +196,12 @@ def sync(dry_run):
                     response_external_id = keycloak_agent.get_client_by_id(client_id)
                     external_id = response_external_id["response"]["id"]
                 if client["dynamically_registered"]:
-                    log.info("Registration Access Token for client `" + str(client_id) + "`: " + str(response["response"]["registrationAccessToken"]))
+                    log.info(
+                        "Registration Access Token for client `"
+                        + str(client_id)
+                        + "`: "
+                        + str(response["response"]["registrationAccessToken"])
+                    )
                 else:
                     create_client_scopes(keycloak_agent, external_id, request_data)
                 if request_data["attributes"]["oauth2.token.exchange.grant.enabled"] == True:
@@ -266,7 +269,7 @@ def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_con
     if "jwks" in msg and msg["jwks"]:
         new_msg["attributes"]["use.jwks.string"] = "true"
         jwks_string = msg.pop("jwks")
-        new_msg["attributes"]["jwks.string"] = jwks_string.replace('"','\"')
+        new_msg["attributes"]["jwks.string"] = jwks_string.replace('"', '\"')
     if "jwks_uri" in msg and msg["jwks_uri"]:
         new_msg["attributes"]["use.jwks.url"] = True
         new_msg["attributes"]["jwks.url"] = msg.pop("jwks_uri")
@@ -286,7 +289,10 @@ def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_con
         new_msg["attributes"]["oauth2.device.code.lifespan"] = str(msg.pop("device_code_validity_seconds"))
     if "id_token_timeout_seconds" in msg and msg["id_token_timeout_seconds"]:
         new_msg["attributes"]["id.token.lifespan"] = str(msg.pop("id_token_timeout_seconds"))
-    if new_msg["standardFlowEnabled"] == True or new_msg["attributes"]["oauth2.device.authorization.grant.enabled"] == True:
+    if (
+        new_msg["standardFlowEnabled"] == True
+        or new_msg["attributes"]["oauth2.device.authorization.grant.enabled"] == True
+    ):
         new_msg["consentRequired"] = True
     return new_msg
 
@@ -301,17 +307,19 @@ def create_client_scopes(agent, client_uuid, client_config):
     for scope in create_client_scopes:
         # Create custom scope
         agent.create_realm_client_scopes(scope)
-    
+
     # Get updated client scopes
     realm_client_scopes = agent.sync_realm_client_scopes()
 
     for add_scope in create_client_scopes:
         agent.add_client_scope_by_id(client_uuid, realm_client_scopes[add_scope])
 
+
 # Update the optional client scopes of the client
 def update_service_account(agent, client_uuid, current_client_config, keycloak_config):
     service_account_profile = agent.get_service_account_user(client_uuid)
     agent.update_user(service_account_profile["response"], current_client_config, keycloak_config)
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "-n":
