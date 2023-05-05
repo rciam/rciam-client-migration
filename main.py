@@ -24,12 +24,42 @@ def map_token_endpoint_value(key):
 
 def sync(dry_run):
     pathname = str(os.path.dirname(os.path.realpath(__file__)))
-    logging.basicConfig(
-        filename=pathname + "/log/main.log",
-        level=logging.DEBUG,
-        filemode="a",
-        format="%(asctime)s - %(message)s",
-    )
+
+    LOGGING_CONFIG = { 
+        'version': 1,
+        'formatters': { 
+            'standard': { 
+                'format': '%(asctime)s [%(levelname)s]: %(message)s'
+            },
+        },
+        'handlers': { 
+            'console': { 
+                'level': 'INFO',
+                'formatter': 'standard',
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://sys.stdout',  # Default is stderr
+            },
+            'file': { 
+                'level': 'DEBUG',
+                'formatter': 'standard',
+                'class': 'logging.FileHandler',
+                'filename': pathname + '/log/main.log',  # Default is stderr
+                'mode': 'a',
+            },
+        },
+        'loggers': { 
+            'client_migration': { 
+                'level': 'DEBUG',
+                'handlers': ['console', 'file'],
+                # 'propagate':False
+            },
+        } 
+    }
+    
+    logging.config.dictConfig(LOGGING_CONFIG)
+    log = logging.getLogger("client_migration")
+
+    log.info("Creating connection with the MITREid Connect DB")
 
     connect_oidc_str = (
         "dbname='" + config.mitreid_config['dbname']
@@ -41,8 +71,8 @@ def sync(dry_run):
     try:
         conn_oidc = psycopg2.connect(connect_oidc_str)
     except Exception as e:
-        logging.error("Could not connect to MITREid Connect DB")
-        logging.error(e)
+        log.error("Could not connect to MITREid Connect DB")
+        log.error(e)
         raise SystemExit("Could not connect to MITREid Connect DB")
 
     # Create psycopg2 cursor that can execute queries
@@ -115,12 +145,12 @@ def sync(dry_run):
         det.code_challenge_method;""" % (dynamic_registrations)
 
     # Select MITREid Connect clients
-    logging.debug("Retrieving client details from MITREid Connect DB")
+    log.info("Retrieving client details from MITREid Connect DB")
     try:
         cursor_oidc.execute(oidc_query)
     except Exception as e:
-        logging.error("Could not retrieve client details from MITREid Connect DB")
-        logging.error(e)
+        log.error("Could not retrieve client details from MITREid Connect DB")
+        log.error(e)
         raise SystemExit("Could not retrieve client details from MITREid Connect DB")
 
     client_details = cursor_oidc.fetchall()
@@ -138,21 +168,27 @@ def sync(dry_run):
     # Map Query result to Keycloak ClientRepresentation object (JSON)
     keycloak_client_list = []
 
+    log.info("Retrieving default client scopes from Keycloak")
     keycloak_agent = KeycloakOidcClientApi(config.keycloak_config['auth_server'], config.keycloak_config['realm'], access_token)
     realm_default_client_scopes = keycloak_agent.get_realm_default_client_scopes()
     default_client_scopes = []
     for scope in realm_default_client_scopes["response"]:
         default_client_scopes.append(scope["name"])
 
-    logging.debug("scopes: " + str(json.dumps(default_client_scopes)))
+    log.debug("scopes: " + str(json.dumps(default_client_scopes)))
 
     # keycloak_client_list = json.dumps(keycloak_client_list)
-    logging.debug("clients: " + str(json.dumps(keycloak_client_list)))
+    # logging.debug("clients: " + str(json.dumps(keycloak_client_list)))
 
     if not dry_run:
+        total_clients = len(client_details)
+        idx = 1
+        log.info("Migrating clients to Keycloak")
         for client in client_details:
             request_data = format_keycloak_client_object(client, default_client_scopes, config.keycloak_config)
-            logging.debug("create client: " + str(request_data))
+            log.info("Creating client ({}/{})".format(idx,total_clients))
+            # print("Creating client ({}/{})".format(idx,total_clients))
+            log.debug("Formatted message for Keycloak: " + str(request_data))
             response = keycloak_agent.create_client((request_data))
             if response["status"] == 201:
                 client_id = response["response"]["clientId"]
@@ -162,15 +198,18 @@ def sync(dry_run):
                     response_external_id = keycloak_agent.get_client_by_id(client_id)
                     external_id = response_external_id["response"]["id"]
                 if client["dynamically_registered"]:
-                    logging.info("Registration Access Token for client `" + str(client_id) + "`: " + str(response["response"]["registrationAccessToken"]))
+                    log.info("Registration Access Token for client `" + str(client_id) + "`: " + str(response["response"]["registrationAccessToken"]))
                 else:
                     create_client_scopes(keycloak_agent, external_id, request_data)
                 if request_data["attributes"]["oauth2.token.exchange.grant.enabled"] == True:
+                    log.info("Enabling Token exchange")
                     keycloak_agent.update_client_authz_permissions(external_id, "enable")
                 if response["response"]["serviceAccountsEnabled"]:
+                    log.info("Updating service account")
                     update_service_account(
                         keycloak_agent, external_id, response["response"], config.keycloak_config["service_account"]
                     )
+            idx += 1
 
 
 def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_config):
