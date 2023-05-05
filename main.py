@@ -184,6 +184,7 @@ def sync(dry_run):
         total_clients = len(client_details)
         idx = 1
         log.info("Migrating clients to Keycloak")
+        dynamic_clients = []
         for client in client_details:
             request_data = format_keycloak_client_object(client, default_client_scopes, config.keycloak_config)
             log.info("Creating client ({}/{})".format(idx, total_clients))
@@ -203,6 +204,12 @@ def sync(dry_run):
                         + "`: "
                         + str(response["response"]["registrationAccessToken"])
                     )
+                    dynamic_clients.append(
+                        {
+                            "client_id": client_id,
+                            "registration_access_token": response["response"]["registrationAccessToken"],
+                        }
+                    )
                 else:
                     create_client_scopes(keycloak_agent, external_id, request_data)
                 if request_data["attributes"]["oauth2.token.exchange.grant.enabled"] == True:
@@ -214,6 +221,8 @@ def sync(dry_run):
                         keycloak_agent, external_id, response["response"], config.keycloak_config["service_account"]
                     )
             idx += 1
+        if dynamic_clients:
+            log.info("The dynamic clients and their registration access tokens are:\n" + str(dynamic_clients))
 
 
 def format_keycloak_client_object(msg, realm_default_client_scopes, keycloak_config):
