@@ -1,5 +1,5 @@
-import logging.config
 import logging
+import logging.config
 
 
 def get_log_conf(log_config_file=None):
