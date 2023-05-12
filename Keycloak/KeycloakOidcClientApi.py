@@ -1,4 +1,6 @@
 import json
+import logging
+
 import requests
 
 """
@@ -23,6 +25,7 @@ class KeycloakOidcClientApi:
         self.auth_url = auth_url
         self.realm = realm
         self.token = token
+        self.log = logging.getLogger("client_migration")
 
     """
     Get a registered client by ID
@@ -75,7 +78,7 @@ class KeycloakOidcClientApi:
         header = {"Authorization": "Bearer " + self.token}
         if action == "enable":
             enabled = True
-        elif action == "disable":
+        else:
             enabled = False
         client_object = {"enabled": enabled}
 
@@ -216,17 +219,43 @@ class KeycloakOidcClientApi:
             response = requests.request(method, url, headers=header, json=data)
             response.raise_for_status()
         except requests.exceptions.HTTPError as errh:
-            print("Http Error: %s with error: %s" % (url, repr(errh)))
-            return {"status": response.status_code, "error": repr(errh)}
+            self.log.error(
+                "HTTP Error: %s with error: HTTP %s and response: %s" % (url, response.status_code, response.json())
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(errh),
+                "response": response.json(),
+            }
         except requests.exceptions.ConnectionError as errc:
-            print("Error Connecting: %s with error: %s" % (url, repr(errc)))
-            return {"status": response.status_code, "error": repr(errc)}
+            self.log.error(
+                "Connection Error: %s with error: HTTP  %s and response: %s"
+                % (url, response.status_code, response.text)
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(errc),
+                "response": response.json(),
+            }
         except requests.exceptions.Timeout as errt:
-            print("Timeout Error: %s with error: %s" % (url, repr(errt)))
-            return {"status": response.status_code, "error": repr(errt)}
+            self.log.error(
+                "Timeout Error: %s with error: HTTP  %s and response: %s" % (url, response.status_code, response.text)
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(errt),
+                "response": response.json(),
+            }
         except requests.exceptions.RequestException as err:
-            print("Failed to make request to %s with error: %s" % (url, err))
-            return {"status": response.status_code, "error": repr(err)}
+            self.log.error(
+                "Failed to make request to %s with error: HTTP  %s and response: %s"
+                % (url, response.status_code, response.text)
+            )
+            return {
+                "status": response.status_code,
+                "error": repr(err),
+                "response": response.json(),
+            }
 
         if method == "DELETE" or response.status_code == 204 or not response.text:
             return {"status": response.status_code, "response": "OK"}
